@@ -1,0 +1,16 @@
+# ignore runs folder and pycache and weights folder
+# runs
+runs/
+# pycache
+__pycache__/
+# weights
+weights/
+
+# ignore all .pyc files
+*.pyc
+
+# ignore all .pkl files
+*.pkl
+
+# ignore all .log files
+*.log
