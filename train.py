@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from datasets import load_dataset
 from tokenizers import Tokenizer
 from dataset import BilingualDataset, filter_long_sentences  # ✅ Make sure this is imported
-from config import get_configa
+from config import get_config
 
 
 import warnings
@@ -149,6 +149,11 @@ def get_ds(config):
     print("Datasource:", config['datasource'])
     ds_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
 
+    # Build tokenizers
+    tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
+    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['lang_tgt'])
+
+
     # Filter out long sentences
     print(f"[INFO] Dataset size before filtering: {len(ds_raw)}")
     filtered_dataset = filter_long_sentences(
@@ -160,10 +165,6 @@ def get_ds(config):
         config["seq_len"],
     )
     print(f"[INFO] Dataset size after filtering: {len(filtered_dataset)}")
-
-    # Build tokenizers
-    tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
-    tokenizer_tgt = get_or_build_tokenizer(config, ds_raw, config['lang_tgt'])
 
     # Keep 90% for training, 10% for validation
     train_ds_size = int(0.9 * len(ds_raw))
