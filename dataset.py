@@ -31,16 +31,19 @@ class BilingualDataset(Dataset):
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
         # Add sos, eos and padding to each sentence
-        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # Add <s> and </s>
-        dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1  # Add only <s>, eos on label
+        # Truncate tokens if too long to fit the sequence length
+        max_enc_tokens = self.seq_len - 2  # for SOS and EOS tokens
+        max_dec_tokens = self.seq_len - 1  # for SOS token only
 
-        if enc_num_padding_tokens < 0:
-            enc_input_tokens = enc_input_tokens[:self.seq_len - 2]
-            enc_num_padding_tokens = 0
+        if len(enc_input_tokens) > max_enc_tokens:
+            enc_input_tokens = enc_input_tokens[:max_enc_tokens]
 
-        if dec_num_padding_tokens < 0:
-            dec_input_tokens = dec_input_tokens[:self.seq_len - 2]
-            dec_num_padding_tokens = 0
+        if len(dec_input_tokens) > max_dec_tokens:
+            dec_input_tokens = dec_input_tokens[:max_dec_tokens]
+
+        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2
+        dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
+
 
         encoder_input = torch.cat(
             [
