@@ -140,6 +140,7 @@ def get_or_build_tokenizer(config, ds, lang):
 
 def get_ds(config):
     # It only has the train split, so we divide it overselves
+    print("Datasource:", config['datasource'])
     ds_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
 
     # Build tokenizers
@@ -183,7 +184,7 @@ def train_model(config):
     print("Using device:", device)
     if (device == 'cuda'):
         print(f"Device name: {torch.cuda.get_device_name(device.index)}")
-        print(f"Device memory: {torch.cuda.get_device_properties(device.index).total_memory / 1024 ** 3} GB")
+        # print(f"Device memory: {torch.cuda.get_device_properties(device.index).total_memory / 1024 ** 3} GB")
     elif (device == 'mps'):
         print(f"Device name: <mps>")
     else:
