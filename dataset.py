@@ -34,8 +34,13 @@ class BilingualDataset(Dataset):
         enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # Add <s> and </s>
         dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1  # Add only <s>, eos on label
 
-        if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
-            raise ValueError("Sentence is too long")
+        if enc_num_padding_tokens < 0:
+            enc_input_tokens = enc_input_tokens[:self.seq_len - 2]
+            enc_num_padding_tokens = 0
+
+        if dec_num_padding_tokens < 0:
+            dec_input_tokens = dec_input_tokens[:self.seq_len - 2]
+            dec_num_padding_tokens = 0
 
         encoder_input = torch.cat(
             [
@@ -88,5 +93,7 @@ def filter_long_sentences(dataset, tokenizer_src, tokenizer_tgt, src_lang, tgt_l
     def is_valid(example):
         src_len = len(tokenizer_src.encode(example["translation"][src_lang]).ids)
         tgt_len = len(tokenizer_tgt.encode(example["translation"][tgt_lang]).ids)
-        return src_len + 2 <= max_len and tgt_len + 1 <= max_len
+        # Both source and target need room for SOS and EOS tokens:
+        return (src_len + 2) <= max_len and (tgt_len + 2) <= max_len
     return dataset.filter(is_valid)
+
