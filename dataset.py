@@ -30,10 +30,9 @@ class BilingualDataset(Dataset):
         enc_input_tokens = self.tokenizer_src.encode(src_text).ids
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
-        # Add sos, eos and padding to each sentence
         # Truncate tokens if too long to fit the sequence length
         max_enc_tokens = self.seq_len - 2  # for SOS and EOS tokens
-        max_dec_tokens = self.seq_len - 1  # for SOS token only
+        max_dec_tokens = self.seq_len - 1  # for SOS token only on decoder input
 
         if len(enc_input_tokens) > max_enc_tokens:
             enc_input_tokens = enc_input_tokens[:max_enc_tokens]
@@ -44,38 +43,41 @@ class BilingualDataset(Dataset):
         enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2
         dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
 
-
+        # Build encoder input sequence: [SOS] + tokens + [EOS] + [PAD...]
         encoder_input = torch.cat(
             [
                 self.sos_token,
                 torch.tensor(enc_input_tokens, dtype=torch.int64),
                 self.eos_token,
-                torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64),
+                torch.full((enc_num_padding_tokens,), self.pad_token.item(), dtype=torch.int64),
             ],
             dim=0,
         )
 
+        # Build decoder input sequence: [SOS] + tokens + [PAD...]
         decoder_input = torch.cat(
             [
                 self.sos_token,
                 torch.tensor(dec_input_tokens, dtype=torch.int64),
-                torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64),
+                torch.full((dec_num_padding_tokens,), self.pad_token.item(), dtype=torch.int64),
             ],
             dim=0,
         )
 
+        # Build label sequence: tokens + [EOS] + [PAD...]
         label = torch.cat(
             [
                 torch.tensor(dec_input_tokens, dtype=torch.int64),
                 self.eos_token,
-                torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64),
+                torch.full((dec_num_padding_tokens,), self.pad_token.item(), dtype=torch.int64),
             ],
             dim=0,
         )
 
-        assert encoder_input.size(0) == self.seq_len
-        assert decoder_input.size(0) == self.seq_len
-        assert label.size(0) == self.seq_len
+        # Sanity check: all sequences must be exactly seq_len long
+        assert encoder_input.size(0) == self.seq_len, f"encoder_input length {encoder_input.size(0)} != seq_len {self.seq_len}"
+        assert decoder_input.size(0) == self.seq_len, f"decoder_input length {decoder_input.size(0)} != seq_len {self.seq_len}"
+        assert label.size(0) == self.seq_len, f"label length {label.size(0)} != seq_len {self.seq_len}"
 
         return {
             "encoder_input": encoder_input,
@@ -91,12 +93,11 @@ def causal_mask(size):
     mask = torch.triu(torch.ones((1, size, size)), diagonal=1).type(torch.int)
     return mask == 0
 
-# Filtering utility
+# Filtering utility to filter out too long sentences for training
 def filter_long_sentences(dataset, tokenizer_src, tokenizer_tgt, src_lang, tgt_lang, max_len):
     def is_valid(example):
         src_len = len(tokenizer_src.encode(example["translation"][src_lang]).ids)
         tgt_len = len(tokenizer_tgt.encode(example["translation"][tgt_lang]).ids)
-        # Both source and target need room for SOS and EOS tokens:
+        # Both source and target need room for SOS and EOS tokens
         return (src_len + 2) <= max_len and (tgt_len + 2) <= max_len
     return dataset.filter(is_valid)
-
