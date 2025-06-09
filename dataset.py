@@ -31,15 +31,12 @@ class BilingualDataset(Dataset):
         dec_input_tokens = self.tokenizer_tgt.encode(tgt_text).ids
 
         # Add sos, eos and padding to each sentence
-        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # We will add <s> and </s>
-        # We will only add <s>, and </s> only on the label
-        dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1
+        enc_num_padding_tokens = self.seq_len - len(enc_input_tokens) - 2  # Add <s> and </s>
+        dec_num_padding_tokens = self.seq_len - len(dec_input_tokens) - 1  # Add only <s>, eos on label
 
-        # Make sure the number of padding tokens is not negative. If it is, the sentence is too long
         if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
             raise ValueError("Sentence is too long")
 
-        # Add <s> and </s> token
         encoder_input = torch.cat(
             [
                 self.sos_token,
@@ -50,7 +47,6 @@ class BilingualDataset(Dataset):
             dim=0,
         )
 
-        # Add only <s> token
         decoder_input = torch.cat(
             [
                 self.sos_token,
@@ -60,7 +56,6 @@ class BilingualDataset(Dataset):
             dim=0,
         )
 
-        # Add only </s> token
         label = torch.cat(
             [
                 torch.tensor(dec_input_tokens, dtype=torch.int64),
@@ -70,21 +65,28 @@ class BilingualDataset(Dataset):
             dim=0,
         )
 
-        # Double check the size of the tensors to make sure they are all seq_len long
         assert encoder_input.size(0) == self.seq_len
         assert decoder_input.size(0) == self.seq_len
         assert label.size(0) == self.seq_len
 
         return {
-            "encoder_input": encoder_input,  # (seq_len)
-            "decoder_input": decoder_input,  # (seq_len)
-            "encoder_mask": (encoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, seq_len)
-            "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).int() & causal_mask(decoder_input.size(0)), # (1, seq_len) & (1, seq_len, seq_len),
-            "label": label,  # (seq_len)
+            "encoder_input": encoder_input,
+            "decoder_input": decoder_input,
+            "encoder_mask": (encoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(),
+            "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).int() & causal_mask(decoder_input.size(0)),
+            "label": label,
             "src_text": src_text,
             "tgt_text": tgt_text,
         }
-    
+
 def causal_mask(size):
     mask = torch.triu(torch.ones((1, size, size)), diagonal=1).type(torch.int)
     return mask == 0
+
+# Filtering utility
+def filter_long_sentences(dataset, tokenizer_src, tokenizer_tgt, src_lang, tgt_lang, max_len):
+    def is_valid(example):
+        src_len = len(tokenizer_src.encode(example["translation"][src_lang]).ids)
+        tgt_len = len(tokenizer_tgt.encode(example["translation"][tgt_lang]).ids)
+        return src_len + 2 <= max_len and tgt_len + 1 <= max_len
+    return dataset.filter(is_valid)

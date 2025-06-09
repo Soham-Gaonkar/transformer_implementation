@@ -1,5 +1,5 @@
 from model import build_transformer
-from dataset import BilingualDataset, causal_mask
+from dataset import BilingualDataset, causal_mask ,filter_long_sentences
 from config import get_config, get_weights_file_path, latest_weights_file_path
 
 import torchtext.datasets as datasets
@@ -7,6 +7,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import load_dataset
+from tokenizers import Tokenizer
+from dataset import BilingualDataset, filter_long_sentences  # ✅ Make sure this is imported
+from config import get_configa
+
 
 import warnings
 from tqdm import tqdm
@@ -142,6 +148,18 @@ def get_ds(config):
     # It only has the train split, so we divide it overselves
     print("Datasource:", config['datasource'])
     ds_raw = load_dataset(f"{config['datasource']}", f"{config['lang_src']}-{config['lang_tgt']}", split='train')
+
+    # Filter out long sentences
+    print(f"[INFO] Dataset size before filtering: {len(ds_raw)}")
+    filtered_dataset = filter_long_sentences(
+        ds_raw,
+        tokenizer_src,
+        tokenizer_tgt,
+        config["lang_src"],
+        config["lang_tgt"],
+        config["seq_len"],
+    )
+    print(f"[INFO] Dataset size after filtering: {len(filtered_dataset)}")
 
     # Build tokenizers
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
